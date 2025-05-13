@@ -226,6 +226,15 @@ namespace LibreLinkMaui
                     });
                 }
             }
+
+            var data = jsonResp.data.connection.glucoseMeasurement;
+            dataList.Add(new GlucoseData
+            {
+                Timestamp = DateTime.Parse(data.Timestamp.ToString()),
+                Value = float.Parse(data.Value.ToString())
+            });
+
+
             return dataList;
         }
     }
