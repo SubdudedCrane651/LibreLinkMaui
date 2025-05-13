@@ -13,6 +13,10 @@ namespace LibreLinkMaui
 {
     public partial class ConnectPage : ContentPage
     {
+        public List<GlucoseData> GraphDataList { get; private set; } // Store parsed data
+        public string LatestGlucoseValue { get; private set; }
+        public string LatestTimestamp { get; private set; }
+
         private readonly LibreLinkUpClient _client;
         private CancellationTokenSource _cts;
         public string Email = "";
@@ -35,8 +39,8 @@ namespace LibreLinkMaui
             _cts = new CancellationTokenSource();
             while (!_cts.Token.IsCancellationRequested)
             {
-                Main().ConfigureAwait(false);
-                await Task.Delay(1000); // Wait 1 second before repeating
+                await LoadChartDataAsync();
+                await Task.Delay(5000); // Wait 1 second before repeating
             }
             Console.WriteLine("Loop Stopped.");
         }
@@ -46,47 +50,44 @@ namespace LibreLinkMaui
             _cts?.Cancel(); // Stops the loop
         }
 
-        public async Task Main()
+        protected override void OnDisappearing()
         {
-            Console.WriteLine("LibreLinkUp Data Fetcher");
-            Console.WriteLine("-----------------------\n");
+            base.OnDisappearing();
+            StopLoop(); // Stop loop on exit
+        }
 
-            var email = Email;
-            var password = Password;
-
-            Console.WriteLine("\nAttempting to login...");
-
+        private async Task LoadChartDataAsync()
+        {
             try
             {
-                var loginSuccess = await _client.LoginAsync(email, password);
-                if (loginSuccess)
+                var loginSuccess = await _client.LoginAsync(Email, Password);
+                if (!loginSuccess)
                 {
-                    Console.WriteLine("Login successful!\nFetching glucose data...");
-                    var glucoseData = await _client.GetGlucoseDataAsync();
-
-                    Console.WriteLine("\n=== Glucose Reading ===");
-                    Console.WriteLine($"Time: {glucoseData.Timestamp}");
-
-                    // Ensure UI updates happen on the main thread
-                    await MainThread.InvokeOnMainThreadAsync(() =>
-                    {
-                        Date.Text = glucoseData.Timestamp.ToString();
-                        Value.Text = glucoseData.Value.ToString() + " mmol/L";
-                    });
-
-                    Console.WriteLine($"Value: {glucoseData.Value}");
+                    Console.WriteLine("Login failed.");
+                    return;
                 }
-                else
+
+                GraphDataList = await _client.GetGlucoseDataAsync();
+
+                if (GraphDataList.Count > 0)
                 {
-                    Console.WriteLine("Login failed. Please check your credentials.");
+                    var latest = GraphDataList[^1]; // Get latest reading
+                    LatestTimestamp = $"Timestamp: {latest.Timestamp}";
+                    LatestGlucoseValue = $"Glucose: {latest.Value} mmol/L";
                 }
+
+                // Ensure UI updates happen on the main thread
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    BindingContext = this;
+                });
+
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"An error occurred: {ex.Message}");
+                Console.WriteLine($"Exception: {ex.Message}");
             }
         }
-
         private async void Disconnect_Clicked(object sender, EventArgs e)
         {
             StopLoop(); // Stop the loop when disconnect is clicked
@@ -191,7 +192,7 @@ namespace LibreLinkMaui
             }
         }
 
-        public async Task<GlucoseData> GetGlucoseDataAsync()
+        public async Task<List<GlucoseData>> GetGlucoseDataAsync()
         {
             if (string.IsNullOrEmpty(_authToken) || string.IsNullOrEmpty(_patientId))
                 throw new InvalidOperationException("Not authenticated. Call LoginAsync first.");
@@ -203,31 +204,29 @@ namespace LibreLinkMaui
             if (response.StatusCode.ToString() == "OK")
             {
                 dynamic jsonResp = JsonConvert.DeserializeObject(response.ToString());
-                string test = (JsonConvert.SerializeObject(jsonResp, Formatting.Indented));
-
-                if (jsonResp.data != null && jsonResp.data.connection != null && jsonResp.data.connection.glucoseMeasurement != null)
-                {
-                    var data = jsonResp.data.connection.glucoseMeasurement;
-                    return new GlucoseData
-                    {
-                        Timestamp = DateTime.Parse(data.Timestamp.ToString()),
-                        Value = float.Parse(data.Value.ToString()),
-                    };
-                }
-                else
-                {
-                    Console.WriteLine("Expected properties are missing in the JSON response.");
-                    return null;
-                }
+                return ParseGraphData(JsonConvert.SerializeObject(jsonResp, Formatting.Indented));
             }
 
             throw new Exception("Failed to retrieve glucose data");
         }
 
-        public class GlucoseData
+        public List<GlucoseData> ParseGraphData(string json)
         {
-            public DateTime Timestamp { get; set; }
-            public float Value { get; set; }
+            dynamic jsonResp = JsonConvert.DeserializeObject(json);
+            var dataList = new List<GlucoseData>();
+
+            if (jsonResp?.data?.graphData != null)
+            {
+                foreach (var item in jsonResp.data.graphData)
+                {
+                    dataList.Add(new GlucoseData
+                    {
+                        Timestamp = DateTime.Parse(item.Timestamp.ToString()),
+                        Value = float.Parse(item.Value.ToString())
+                    });
+                }
+            }
+            return dataList;
         }
     }
 }

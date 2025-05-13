@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:sf="clr-namespace:Syncfusion.Maui.Charts;assembly=Syncfusion.Maui.Charts"
              x:Class="LibreLinkMaui.ConnectPage"
              Title="ConnectPage">
     <ContentPage.ToolbarItems>
@@ -11,24 +12,39 @@
       Order="Secondary"/>
     </ContentPage.ToolbarItems>
     <VerticalStackLayout>
-        
-        <!--<Image Source="lllu_logo.png"
-               VerticalOptions="Center" 
-HorizontalOptions="Center" />-->
 
-        <Label 
-            Text="Results from LibreLinkUp!"
-            FontAttributes="Bold"
-            VerticalOptions="Center" 
-            HorizontalOptions="Center" />
+        <!-- Latest Glucose Reading -->
+        <Label Text="Glucose Trends" FontSize="20" FontAttributes="Bold"/>
+        <Label Text="{Binding LatestTimestamp}" FontSize="14" TextColor="Gray"/>
+        <Label Text="{Binding LatestGlucoseValue}" FontSize="16" TextColor="Blue"/>
 
-        <Label x:Name="Date"
-               VerticalOptions="Center" 
-HorizontalOptions="Center" />
+        <!-- Line Chart -->
+        <sf:SfCartesianChart>
+            <!-- X Axis (Time) -->
+            <sf:SfCartesianChart.XAxes>
+                <sf:DateTimeAxis>
+                    <sf:DateTimeAxis.Title>
+                        <sf:ChartAxisTitle Text="Time"/>
+                    </sf:DateTimeAxis.Title>
+                </sf:DateTimeAxis>
+            </sf:SfCartesianChart.XAxes>
 
-        <Label x:Name="Value"
-               VerticalOptions="Center" 
-HorizontalOptions="Center" />
+            <!-- Y Axis (Glucose Value) -->
+            <sf:SfCartesianChart.YAxes>
+                <sf:NumericalAxis>
+                    <sf:NumericalAxis.Title>
+                        <sf:ChartAxisTitle Text="Glucose Value"/>
+                    </sf:NumericalAxis.Title>
+                </sf:NumericalAxis>
+            </sf:SfCartesianChart.YAxes>
+
+            <!-- Line Series -->
+            <sf:SfCartesianChart.Series>
+                <sf:LineSeries ItemsSource="{Binding GraphDataList}"
+                       XBindingPath="Timestamp"
+                       YBindingPath="Value"/>
+            </sf:SfCartesianChart.Series>
+        </sf:SfCartesianChart>
 
     </VerticalStackLayout>
 </ContentPage>
