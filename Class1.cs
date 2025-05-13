@@ -16,7 +16,7 @@ namespace LibreLinkMaui
 {
     public class Class1
     {
-        private static string mainDir = Microsoft.Maui.Storage.FileSystem.AppDataDirectory;
+        private static string mainDir = Microsoft.Maui.Storage.FileSystem.Current.AppDataDirectory;
         private static string MobileData = System.IO.Path.Combine(mainDir, "login.json");
         public async Task<string> SendMail(string subject, string body, string recipient, string Bcc, string attachments)
         {
