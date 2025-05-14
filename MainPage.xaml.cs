@@ -20,7 +20,10 @@ namespace LibreLinkMaui
             {
                 email = jsonObject["email"].ToString();
             }
-            catch { }
+            catch
+            {
+                email = "";
+            }
 
             try
             {
@@ -29,16 +32,19 @@ namespace LibreLinkMaui
             
             catch
             {
-                string loginjson = @"{'email':'" + email + "','password':'" + password + "'}";
-
-                class1.SaveData(loginjson);
+                password = "";
             }
 
-            if (email != "")
+            if (email!=null && email != "")
             {
                 emailEntry.Text = email;
                 passwordEntry.Text = password;
                 LoadConnectPage(email,password);
+            } else
+            {
+                string loginjson = @"{'email':'" + "','password':'" + "'}";
+
+                class1.SaveData(loginjson);
             }
         }
 
