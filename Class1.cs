@@ -102,9 +102,9 @@ namespace LibreLinkMaui
 
         public class LibreLinkUpClient
         {
-            private string _authToken;
-            private string _patientId;
-            private string _sha256Hash;
+            private string? _authToken;
+            private string? _patientId;
+            private string? _sha256Hash;
 
             public async Task<bool> LoginAsync(string email, string password)
             {

@@ -28,36 +28,5 @@
 	</array>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
-	<key>CFBundleIdentifier</key>
-	<string>com.maui.librelinkmaui</string>
-<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>ubuntu.3utilities.com</key>
-			<dict>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-				<key>NSThirdPartyExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
-		<dict>
-			<key>rj2shop.com</key>
-			<dict>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-				<key>NSThirdPartyExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
-	</dict>
 </dict>
-<key>NSAllowsArbitraryLoadsInWebContent</key>
-<true/>
-<key>NSAllowsLocalNetworking</key>
-<true/>
-<key>NSAllowsJavaScript</key>
-<true/>
-<key>NSAllowsJavaScriptInBackground</key>
-<true/>
+</plist>
