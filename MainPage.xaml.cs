@@ -6,9 +6,9 @@ namespace LibreLinkMaui
     {
 
         public Class1 class1 = new Class1();
-        public static string password = "";
-        public static string email = "";
-        public static string json = "";
+        public string password = "";
+        public string email = "";
+        public string json = "";
         public MainPage()
         {
             InitializeComponent();
