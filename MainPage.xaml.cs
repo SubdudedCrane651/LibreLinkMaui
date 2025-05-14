@@ -35,7 +35,8 @@ namespace LibreLinkMaui
                 password = "";
             }
 
-            if (email!=null && email != "")
+            var doit = class1.CheckCredentials(email, password);
+            if (doit.Result == true)
             {
                 emailEntry.Text = email;
                 passwordEntry.Text = password;
