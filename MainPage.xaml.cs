@@ -35,17 +35,16 @@ namespace LibreLinkMaui
                 password = "";
             }
 
-            var doit = class1.CheckCredentials(email, password);
-            if (doit.Result == true)
+            if(email!="" && password!="")
             {
                 emailEntry.Text = email;
                 passwordEntry.Text = password;
                 LoadConnectPage(email,password);
             } else
             {
-                string loginjson = @"{'email':'" + "','password':'" + "'}";
+                json = @"{'email':'" + "','password':'" + "'}";
 
-                class1.SaveData(loginjson);
+                class1.SaveData(json);
             }
         }
 
