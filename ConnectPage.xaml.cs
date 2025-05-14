@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,6 +8,8 @@ using Leaf.xNet;
 using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Threading;
+using System.ComponentModel;
+using Syncfusion.Maui.Core.Carousel;
 
 namespace LibreLinkMaui
 {
@@ -22,6 +24,8 @@ namespace LibreLinkMaui
         public string Email = "";
         public string Password = "";
         public Class1 class1 = new Class1();
+        private readonly ConnectPageViewModel _viewModel;
+
 
         public ConnectPage(string email, string password)
         {
@@ -31,6 +35,8 @@ namespace LibreLinkMaui
             _client = new LibreLinkUpClient();
             // Start looping Main method asynchronously
             //Main().ConfigureAwait(false);
+            _viewModel = new ConnectPageViewModel();
+            BindingContext = _viewModel; // ✅ Ensures bindings work
             Task.Run(() => StartLoopAsync());
         }
 
@@ -40,7 +46,7 @@ namespace LibreLinkMaui
             while (!_cts.Token.IsCancellationRequested)
             {
                 await LoadChartDataAsync();
-                await Task.Delay(5000); // Wait 1 second before repeating
+                await Task.Delay(1000); // Wait 1 second before repeating
             }
             Console.WriteLine("Loop Stopped.");
         }
@@ -56,6 +62,36 @@ namespace LibreLinkMaui
             StopLoop(); // Stop loop on exit
         }
 
+        public class ConnectPageViewModel : INotifyPropertyChanged
+        {
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            private List<GlucoseData> _graphDataList;
+            public List<GlucoseData> GraphDataList
+            {
+                get => _graphDataList;
+                set { _graphDataList = value; OnPropertyChanged(nameof(GraphDataList)); }
+            }
+
+            private string _latestGlucoseValue;
+            public string LatestGlucoseValue
+            {
+                get => _latestGlucoseValue;
+                set { _latestGlucoseValue = value; OnPropertyChanged(nameof(LatestGlucoseValue)); }
+            }
+
+            private string _latestTimestamp;
+            public string LatestTimestamp
+            {
+                get => _latestTimestamp;
+                set { _latestTimestamp = value; OnPropertyChanged(nameof(LatestTimestamp)); }
+            }
+
+            protected void OnPropertyChanged(string name)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+            }
+        }
         private async Task LoadChartDataAsync()
         {
             try
@@ -67,27 +103,24 @@ namespace LibreLinkMaui
                     return;
                 }
 
-                GraphDataList = await _client.GetGlucoseDataAsync();
-
-                if (GraphDataList.Count > 0)
+                var newData = await _client.GetGlucoseDataAsync();
+                if (newData != null && newData.Count > 0)
                 {
-                    var latest = GraphDataList[^1]; // Get latest reading
-                    LatestTimestamp = $"Timestamp: {latest.Timestamp}";
-                    LatestGlucoseValue = $"Glucose: {latest.Value} mmol/L";
+                    _viewModel.GraphDataList = newData; // ✅ Bind list dynamically
+
+                    var latest = _viewModel.GraphDataList[^1];
+                    _viewModel.LatestTimestamp = $"Timestamp: {latest.Timestamp}";
+                    _viewModel.LatestGlucoseValue = $"Glucose: {latest.Value} mmol/L";
                 }
 
-                // Ensure UI updates happen on the main thread
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    BindingContext = this;
-                });
-
+                BindingContext = _viewModel; // ✅ Ensures bindings work
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Exception: {ex.Message}");
             }
         }
+
         private async void Disconnect_Clicked(object sender, EventArgs e)
         {
             StopLoop(); // Stop the loop when disconnect is clicked
