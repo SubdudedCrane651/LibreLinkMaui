@@ -87,6 +87,21 @@ namespace LibreLinkMaui
             return false;
         }
 
+        public string GetLoginJson()
+        {
+            var AllOfTexts = "";
+
+            if (File.Exists(MobileData))
+            {
+
+                AllOfTexts = File.ReadAllText(MobileData);
+            }
+            else { AllOfTexts = @"{'email':'',password:''}"; }
+            return AllOfTexts;
+        }
+
+        public class LibreLinkUpClient
+        {
             private string _authToken;
             private string _patientId;
             private string _sha256Hash;
@@ -159,19 +174,20 @@ namespace LibreLinkMaui
                     }
                     return false;
                 }
-                catch (System.Exception ex)
+                catch (Exception ex)
                 {
                     Console.WriteLine($"An error occurred: {ex.Message}");
                     return false;
                 }
             }
+        }
 
         private static string ComputeSha256Hash(string input)
         {
             using (SHA256 sha256Hash = SHA256.Create())
             {
                 byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(input));
-                System.Text.StringBuilder builder = new System.Text.StringBuilder();
+                StringBuilder builder = new StringBuilder();
                 foreach (byte b in bytes)
                 {
                     builder.Append(b.ToString("x2"));
@@ -204,23 +220,6 @@ namespace LibreLinkMaui
             using StreamReader reader = new StreamReader(fileStream);
 
             return await reader.ReadToEndAsync();
-        }
-        public void SendPersonalData(string type, string content)
-        {
-            //_ = WritePersonalJson(type, content);
-        }
-
-        public string GetLoginJson()
-        {
-            var AllOfTexts = "";
-
-            if (File.Exists(MobileData))
-            {
-
-                AllOfTexts = File.ReadAllText(MobileData);
-            }
-            else { AllOfTexts = @"{'email':'',password:''}"; }
-            return AllOfTexts;
         }
     }
 }

@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Syncfusion.Maui.Core.Hosting;
 
-
 namespace LibreLinkMaui
 {
     public static class MauiProgram

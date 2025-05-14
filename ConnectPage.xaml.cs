@@ -224,7 +224,6 @@ namespace LibreLinkMaui
                 return builder.ToString();
             }
         }
-
         public async Task<List<GlucoseData>> GetGlucoseDataAsync()
         {
             if (string.IsNullOrEmpty(_authToken) || string.IsNullOrEmpty(_patientId))

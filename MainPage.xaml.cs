@@ -50,18 +50,21 @@ namespace LibreLinkMaui
         private async void Button_Clicked(object sender, EventArgs e)
         {
             var doit = class1.CheckCredentials(emailEntry.Text, passwordEntry.Text);
-            if (doit.Result==true) {
+                if (doit.Result == true)
+                {
 
-                string loginjson = @"{'email':'" + emailEntry.Text + "','password':'" + passwordEntry.Text + "'}";
+                    string loginjson = @"{'email':'" + emailEntry.Text + "','password':'" + passwordEntry.Text + "'}";
 
-                class1.SaveData(loginjson);
+                    class1.SaveData(loginjson);
 
-                await Navigation.PushAsync(new ConnectPage(emailEntry.Text, passwordEntry.Text));
-            }
-            else
-            {
-                await DisplayAlert("Alert", "The email or password is incorrect please try again!", "OK");
+                    await Navigation.PushAsync(new ConnectPage(emailEntry.Text, passwordEntry.Text));
+
+
+                }
+                else
+                {
+                    await DisplayAlert("Alert", "The email or password is incorrect please try again!", "OK");
+                }
             }
         }
     }
-}
