@@ -8,9 +8,12 @@ using System.Net.Mail;
 using System.Reflection.Metadata.Ecma335;
 using System.Security.Cryptography;
 using System.Text;
-using Leaf.xNet;
+using System.Net.Http;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Threading.Tasks;
+using Leaf.xNet;
+
 
 namespace LibreLinkMaui
 {
@@ -18,6 +21,7 @@ namespace LibreLinkMaui
     {
         private static string mainDir = Microsoft.Maui.Storage.FileSystem.Current.AppDataDirectory;
         private static string MobileData = System.IO.Path.Combine(mainDir, "login.json");
+
         public async Task<string> SendMail(string subject, string body, string recipient, string Bcc, string attachments)
         {
             try
@@ -181,6 +185,8 @@ namespace LibreLinkMaui
                 }
             }
         }
+
+
 
         private static string ComputeSha256Hash(string input)
         {
