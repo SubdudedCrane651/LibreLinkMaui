@@ -55,6 +55,22 @@ namespace LibreLinkMaui
 
         private async void Button_Clicked(object sender, EventArgs e)
         {
+#if IOS
+            var doit = await class1.CheckCredentials_iOS(emailEntry.Text, passwordEntry.Text); // ✅ Await async function
+
+             if (doit=="OK")
+            {
+                string loginjson = $"{{'email':'{emailEntry.Text}','password':'{passwordEntry.Text}'}}";
+
+                class1.SaveData(loginjson);
+
+                await Navigation.PushAsync(new ConnectPage(emailEntry.Text, passwordEntry.Text)); // ✅ Await navigation
+            }
+            else
+            {
+                await DisplayAlert("Alert", doit, "OK");
+            }
+#else
             bool doit = await class1.CheckCredentials(emailEntry.Text, passwordEntry.Text); // ✅ Await async function
 
             if (doit)
@@ -69,6 +85,7 @@ namespace LibreLinkMaui
             {
                 await DisplayAlert("Alert", "The email or password is incorrect, please try again!", "OK");
             }
+#endif
         }
     }
 }
