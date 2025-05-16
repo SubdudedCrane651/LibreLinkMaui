@@ -12,9 +12,6 @@ using System.Net.Http;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
-using System;
-using System.Net.Http;
-using System.Threading.Tasks;
 
 
 namespace LibreLinkMaui
@@ -105,7 +102,6 @@ namespace LibreLinkMaui
             else { AllOfTexts = @"{'email':'',password:''}"; }
             return AllOfTexts;
         }
-
         public class LibreLinkUpClient
         {
             private readonly HttpClient _httpClient;
@@ -116,21 +112,7 @@ namespace LibreLinkMaui
             public LibreLinkUpClient()
             {
                 _httpClient = new HttpClient();
-            }
-
-            private void ConfigureDefaultHeaders()
-            {
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
-                _httpClient.DefaultRequestHeaders.Add("Pragma", "no-cache");
-                _httpClient.DefaultRequestHeaders.Add("Connection", "Keep-Alive");
-                _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
-                _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Site", "cross-site");
-                _httpClient.DefaultRequestHeaders.Add("Sec-CH-UA-Mobile", "?0");
-                _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "HTTP Debugger/9.0.0.12");
-                _httpClient.DefaultRequestHeaders.Add("Product", "llu.android");
-                _httpClient.DefaultRequestHeaders.Add("Version", "4.12.0");
-                _httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
+                ConfigureHeaders(null, null);
             }
 
             public async Task<bool> LoginAsync(string email, string password)
@@ -144,7 +126,7 @@ namespace LibreLinkMaui
                     var json = JsonConvert.SerializeObject(requestBody);
                     var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                    ConfigureDefaultHeaders();
+                    // ✅ Send Login Request
                     var response = await _httpClient.PostAsync(loginUrl, content);
                     if (!response.IsSuccessStatusCode)
                     {
@@ -153,15 +135,15 @@ namespace LibreLinkMaui
                     }
 
                     var responseString = await response.Content.ReadAsStringAsync();
-                    dynamic JsonLogin = JsonConvert.DeserializeObject(responseString);
-                    string region = JsonLogin.data.region != null ? $"-{JsonLogin.data.region}" : "";
+                    dynamic jsonLogin = JsonConvert.DeserializeObject(responseString);
+                    string region = jsonLogin.data.region != null ? $"-{jsonLogin.data.region}" : "";
 
+                    // ✅ Handle region-based login
                     if (!string.IsNullOrEmpty(region))
                     {
                         loginUrl = $"https://api{region}.libreview.io/llu/auth/login";
                         conUrl = $"https://api{region}.libreview.io/llu/connections";
 
-                        ConfigureDefaultHeaders();
                         response = await _httpClient.PostAsync(loginUrl, content);
                         if (!response.IsSuccessStatusCode)
                         {
@@ -170,16 +152,16 @@ namespace LibreLinkMaui
                         }
 
                         responseString = await response.Content.ReadAsStringAsync();
-                        JsonLogin = JsonConvert.DeserializeObject(responseString);
+                        jsonLogin = JsonConvert.DeserializeObject(responseString);
                     }
 
-                    _authToken = JsonLogin.data.authTicket.token;
-                    _patientId = JsonLogin.data.user.id;
+                    _authToken = jsonLogin.data.authTicket.token;
+                    _patientId = jsonLogin.data.user.id;
                     _sha256Hash = ComputeSha256Hash(_patientId);
 
-                    _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _authToken);
-                    _httpClient.DefaultRequestHeaders.Add("Account-Id", _sha256Hash);
+                    ConfigureHeaders(_authToken, _sha256Hash);
 
+                    // ✅ Fetch patient connection details
                     response = await _httpClient.GetAsync(conUrl);
                     if (!response.IsSuccessStatusCode)
                     {
@@ -200,6 +182,27 @@ namespace LibreLinkMaui
                 }
             }
 
+            private void ConfigureHeaders(string? auth, string? hash)
+            {
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
+                _httpClient.DefaultRequestHeaders.Add("Pragma", "no-cache");
+                _httpClient.DefaultRequestHeaders.Add("Connection", "Keep-Alive");
+                _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
+                _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Site", "cross-site");
+                _httpClient.DefaultRequestHeaders.Add("Sec-CH-UA-Mobile", "?0");
+                _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "HTTP Debugger/9.0.0.12");
+                _httpClient.DefaultRequestHeaders.Add("Product", "llu.android");
+                _httpClient.DefaultRequestHeaders.Add("Version", "4.12.0");
+                _httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
+
+                if (!string.IsNullOrEmpty(auth))
+                    _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", auth);
+
+                if (!string.IsNullOrEmpty(hash))
+                    _httpClient.DefaultRequestHeaders.Add("Account-Id", hash);
+            }
+
             private static string ComputeSha256Hash(string input)
             {
                 using var sha256Hash = System.Security.Cryptography.SHA256.Create();
@@ -212,8 +215,6 @@ namespace LibreLinkMaui
                 return builder.ToString();
             }
         }
-
-
         public string Translate(string phrase, string language)
         {
             string trans = "";
