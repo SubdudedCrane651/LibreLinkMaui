@@ -8,11 +8,9 @@ using System.Net.Mail;
 using System.Reflection.Metadata.Ecma335;
 using System.Security.Cryptography;
 using System.Text;
-using System.Net.Http;
+using Leaf.xNet;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Threading.Tasks;
-
 
 namespace LibreLinkMaui
 {
@@ -20,7 +18,6 @@ namespace LibreLinkMaui
     {
         private static string mainDir = Microsoft.Maui.Storage.FileSystem.Current.AppDataDirectory;
         private static string MobileData = System.IO.Path.Combine(mainDir, "login.json");
-
         public async Task<string> SendMail(string subject, string body, string recipient, string Bcc, string attachments)
         {
             try
@@ -90,124 +87,91 @@ namespace LibreLinkMaui
             return false;
         }
 
-        public string GetLoginJson()
+        private string _authToken;
+        private string _patientId;
+        private string _sha256Hash;
+
+        public async Task<bool> LoginAsync(string email, string password)
         {
-            var AllOfTexts = "";
-
-            if (File.Exists(MobileData))
+            try
             {
+                HttpRequest postReq = new HttpRequest();
+                var loginUrl = "https://api.libreview.io/llu/auth/login";
+                var conUrl = "https://api.libreview.io/llu/connections";
 
-                AllOfTexts = File.ReadAllText(MobileData);
-            }
-            else { AllOfTexts = @"{'email':'',password:''}"; }
-            return AllOfTexts;
-        }
-        public class LibreLinkUpClient
-        {
-            private readonly HttpClient _httpClient;
-            private string? _authToken;
-            private string? _patientId;
-            private string? _sha256Hash;
+                Utils.addHeaders(postReq, null, null);
+                var requestBody = new { email, password };
+                var json = JsonConvert.SerializeObject(requestBody);
+                var request = postReq.Post(loginUrl, json, "application/json");
+                string region = null;
 
-            public LibreLinkUpClient()
-            {
-                _httpClient = new HttpClient();
-                ConfigureHeaders(null, null);
-            }
-
-            public async Task<bool> LoginAsync(string email, string password)
-            {
-                try
+                if (request.StatusCode.ToString() == "OK")
                 {
-                    var loginUrl = "https://api.libreview.io/llu/auth/login";
-                    var conUrl = "https://api.libreview.io/llu/connections";
-
-                    var requestBody = new { email, password };
-                    var json = JsonConvert.SerializeObject(requestBody);
-                    var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                    // ✅ Send Login Request
-                    var response = await _httpClient.PostAsync(loginUrl, content);
-                    if (!response.IsSuccessStatusCode)
+                    string requested = null;
+                    bool actual = false;
+                    dynamic JsonLogin = JsonConvert.DeserializeObject(request.ToString());
+                    if (JsonLogin.data.region != null)
                     {
-                        Console.WriteLine($"Login failed: {response.StatusCode}");
-                        return false;
-                    }
-
-                    var responseString = await response.Content.ReadAsStringAsync();
-                    dynamic jsonLogin = JsonConvert.DeserializeObject(responseString);
-                    string region = jsonLogin.data.region != null ? $"-{jsonLogin.data.region}" : "";
-
-                    // ✅ Handle region-based login
-                    if (!string.IsNullOrEmpty(region))
-                    {
+                        region = $"-{JsonLogin.data.region}";
                         loginUrl = $"https://api{region}.libreview.io/llu/auth/login";
                         conUrl = $"https://api{region}.libreview.io/llu/connections";
-
-                        response = await _httpClient.PostAsync(loginUrl, content);
-                        if (!response.IsSuccessStatusCode)
-                        {
-                            Console.WriteLine($"Regional login failed: {response.StatusCode}");
-                            return false;
-                        }
-
-                        responseString = await response.Content.ReadAsStringAsync();
-                        jsonLogin = JsonConvert.DeserializeObject(responseString);
+                        postReq.ClearAllHeaders();
+                        Utils.addHeaders(postReq, null, null);
+                        requested = postReq.Post(loginUrl, json, "application/json").ToString();
                     }
+                    else
+                        actual = true;
 
-                    _authToken = jsonLogin.data.authTicket.token;
-                    _patientId = jsonLogin.data.user.id;
-                    _sha256Hash = ComputeSha256Hash(_patientId);
-
-                    ConfigureHeaders(_authToken, _sha256Hash);
-
-                    // ✅ Fetch patient connection details
-                    response = await _httpClient.GetAsync(conUrl);
-                    if (!response.IsSuccessStatusCode)
+                    string input = null;
+                    if (requested != null || actual == true)
                     {
-                        Console.WriteLine($"Failed to retrieve patient connections: {response.StatusCode}");
-                        return false;
+                        if (requested != null)
+                        {
+                            dynamic jsonResp = JsonConvert.DeserializeObject(requested);
+                            _authToken = jsonResp.data.authTicket.token;
+                            try
+                            {
+                                input = jsonResp.data.user.id;
+                            }
+                            catch { }
+                        }
+                        else if (actual == true)
+                        {
+                            _authToken = JsonLogin.data.authTicket.token;
+                            input = JsonLogin.data.user.id;
+                        }
+                        if (input != null)
+                            _sha256Hash = ComputeSha256Hash(input);
+
+                        postReq.ClearAllHeaders();
+                        Utils.addHeaders(postReq, _authToken, _sha256Hash);
+                        var connectionsResp = postReq.Get(conUrl);
+
+                        if (connectionsResp.StatusCode.ToString() == "OK")
+                        {
+                            dynamic jsonCon = JsonConvert.DeserializeObject(connectionsResp.ToString());
+                            _patientId = jsonCon.data[0].patientId;
+                            postReq.ClearAllHeaders();
+                            Utils.addHeaders(postReq, _authToken, _sha256Hash);
+                            return true;
+                        }
                     }
-
-                    responseString = await response.Content.ReadAsStringAsync();
-                    dynamic jsonCon = JsonConvert.DeserializeObject(responseString);
-                    _patientId = jsonCon.data[0].patientId;
-
-                    return true;
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"An error occurred: {ex.Message}");
-                    return false;
-                }
+                return false;
             }
-
-            private void ConfigureHeaders(string? auth, string? hash)
+            catch (System.Exception ex)
             {
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
-                _httpClient.DefaultRequestHeaders.Add("Pragma", "no-cache");
-                _httpClient.DefaultRequestHeaders.Add("Connection", "Keep-Alive");
-                _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
-                _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Site", "cross-site");
-                _httpClient.DefaultRequestHeaders.Add("Sec-CH-UA-Mobile", "?0");
-                _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "HTTP Debugger/9.0.0.12");
-                _httpClient.DefaultRequestHeaders.Add("Product", "llu.android");
-                _httpClient.DefaultRequestHeaders.Add("Version", "4.12.0");
-                _httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
-
-                if (!string.IsNullOrEmpty(auth))
-                    _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", auth);
-
-                if (!string.IsNullOrEmpty(hash))
-                    _httpClient.DefaultRequestHeaders.Add("Account-Id", hash);
+                Console.WriteLine($"An error occurred: {ex.Message}");
+                return false;
             }
+        }
 
-            private static string ComputeSha256Hash(string input)
+        private static string ComputeSha256Hash(string input)
+        {
+            using (SHA256 sha256Hash = SHA256.Create())
             {
-                using var sha256Hash = System.Security.Cryptography.SHA256.Create();
                 byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(input));
-                StringBuilder builder = new StringBuilder();
+                System.Text.StringBuilder builder = new System.Text.StringBuilder();
                 foreach (byte b in bytes)
                 {
                     builder.Append(b.ToString("x2"));
@@ -215,6 +179,7 @@ namespace LibreLinkMaui
                 return builder.ToString();
             }
         }
+
         public string Translate(string phrase, string language)
         {
             string trans = "";
@@ -239,6 +204,23 @@ namespace LibreLinkMaui
             using StreamReader reader = new StreamReader(fileStream);
 
             return await reader.ReadToEndAsync();
+        }
+        public void SendPersonalData(string type, string content)
+        {
+            //_ = WritePersonalJson(type, content);
+        }
+
+        public string GetLoginJson()
+        {
+            var AllOfTexts = "";
+
+            if (File.Exists(MobileData))
+            {
+
+                AllOfTexts = File.ReadAllText(MobileData);
+            }
+            else { AllOfTexts = @"{'email':'',password:''}"; }
+            return AllOfTexts;
         }
     }
 }
