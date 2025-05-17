@@ -11,6 +11,7 @@ using System.ComponentModel;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.IO.Compression;
 
 
 namespace LibreLinkMaui
@@ -151,11 +152,16 @@ namespace LibreLinkMaui
                 var loginUrl = "https://api.libreview.io/llu/auth/login";
                 var conUrl = "https://api.libreview.io/llu/connections";
 
-                var requestBody = new { email, password };
+                var requestBody = new
+                {
+                    email = email,
+                    password = password
+                };
+
                 var json = JsonConvert.SerializeObject(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                ConfigureHeaders(_httpClient,null, null);
+                ConfigureHeaders(_httpClient, null, null);
                 // ✅ Send Login Request
                 var response = await _httpClient.PostAsync(loginUrl, content);
                 if (!response.IsSuccessStatusCode)
@@ -164,7 +170,13 @@ namespace LibreLinkMaui
                     return false;
                 }
 
-                var responseString = await response.Content.ReadAsStringAsync();
+                // ✅ Decompress GZIP Content
+                using var responseStream = await response.Content.ReadAsStreamAsync();
+                using var decompressedStream = new GZipStream(responseStream, CompressionMode.Decompress);
+                using var streamReader = new StreamReader(decompressedStream, Encoding.UTF8);
+                string responseString = await streamReader.ReadToEndAsync();
+
+                // ✅ Parse JSON after decompression
                 dynamic JsonLogin = JsonConvert.DeserializeObject(responseString);
                 string region = JsonLogin.data.region != null ? $"-{JsonLogin.data.region}" : "";
               
@@ -202,8 +214,12 @@ namespace LibreLinkMaui
                     return false;
                 }
 
-                responseString = await response.Content.ReadAsStringAsync();
-                dynamic jsonCon = JsonConvert.DeserializeObject(responseString);
+                // ✅ Decompress GZIP Content
+                using var responseStream2 = await response.Content.ReadAsStreamAsync();
+                using var decompressedStream2 = new GZipStream(responseStream2, CompressionMode.Decompress);
+                using var streamReader2 = new StreamReader(decompressedStream2, Encoding.UTF8);
+                string responseString2 = await streamReader2.ReadToEndAsync();
+                dynamic jsonCon = JsonConvert.DeserializeObject(responseString2);
                 _patientId = jsonCon.data[0].patientId;
 
                 return true;
@@ -260,8 +276,15 @@ namespace LibreLinkMaui
 
             if (response.IsSuccessStatusCode)
             {
-                var jsonResp = await response.Content.ReadAsStringAsync();
-                return ParseGraphData(jsonResp);
+                //var jsonResp = await response.Content.ReadAsStringAsync();
+                using var responseStream = await response.Content.ReadAsStreamAsync();
+                using var decompressedStream = new GZipStream(responseStream, CompressionMode.Decompress);
+                using var streamReader = new StreamReader(decompressedStream, Encoding.UTF8);
+                string responseString = await streamReader.ReadToEndAsync();
+
+                // ✅ Parse JSON after decompression
+                //dynamic jsonResp = JsonConvert.DeserializeObject(responseString);
+                return ParseGraphData(responseString);
             }
 
             throw new Exception($"Failed to retrieve glucose data. Status Code: {response.StatusCode}");

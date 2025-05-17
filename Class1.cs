@@ -2,9 +2,19 @@
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
-using Leaf.xNet;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Threading.Tasks;
+using System;
+using System.Diagnostics;
+using System.Threading;
+using System.ComponentModel;
+using System.Net.Http;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.IO.Compression;
 
 namespace LibreLinkMaui
 {
@@ -58,28 +68,15 @@ namespace LibreLinkMaui
             }
         }
 
-        public void SaveData(string str)
+        
+
+            public void SaveData(string str)
         {
 
             File.WriteAllText(MobileData, str);//save
         }
 
-        public async Task<bool> CheckCredentials(string email, string password)
-        {
-            var _client = new LibreLinkUpClient();
-
-            try
-            {
-                var loginSuccess = await _client.LoginAsync(email, password);
-                if (loginSuccess)
-                {
-                    return true;
-                }
-            }
-            catch { }
-
-            return false;
-        }
+      
 
         public string Translate(string phrase, string language)
         {
