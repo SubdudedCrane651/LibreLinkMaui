@@ -4,12 +4,14 @@ using System.Text;
 using System.Threading.Tasks;
 using System;
 using System.Security.Cryptography;
-using Leaf.xNet;
 using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Threading;
 using System.ComponentModel;
-using Syncfusion.Maui.Core.Carousel;
+using System.Net.Http;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+
 
 namespace LibreLinkMaui
 {
@@ -132,77 +134,79 @@ namespace LibreLinkMaui
 
     public class LibreLinkUpClient
     {
+        private readonly HttpClient _httpClient;
         private string? _authToken;
         private string? _patientId;
         private string? _sha256Hash;
+
+        public LibreLinkUpClient()
+        {
+            _httpClient = new HttpClient();
+        }
 
         public async Task<bool> LoginAsync(string email, string password)
         {
             try
             {
-                HttpRequest postReq = new HttpRequest();
                 var loginUrl = "https://api.libreview.io/llu/auth/login";
                 var conUrl = "https://api.libreview.io/llu/connections";
 
-                Utils.addHeaders(postReq, null, null);
                 var requestBody = new { email, password };
                 var json = JsonConvert.SerializeObject(requestBody);
-                var request = postReq.Post(loginUrl, json, "application/json");
-                string region = null;
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                if (request.StatusCode.ToString() == "OK")
+                ConfigureHeaders(_httpClient,null, null);
+                // ✅ Send Login Request
+                var response = await _httpClient.PostAsync(loginUrl, content);
+                if (!response.IsSuccessStatusCode)
                 {
-                    string requested = null;
-                    bool actual = false;
-                    dynamic JsonLogin = JsonConvert.DeserializeObject(request.ToString());
-                    if (JsonLogin.data.region != null)
-                    {
-                        region = $"-{JsonLogin.data.region}";
-                        loginUrl = $"https://api{region}.libreview.io/llu/auth/login";
-                        conUrl = $"https://api{region}.libreview.io/llu/connections";
-                        postReq.ClearAllHeaders();
-                        Utils.addHeaders(postReq, null, null);
-                        requested = postReq.Post(loginUrl, json, "application/json").ToString();
-                    }
-                    else
-                        actual = true;
-
-                    string input = null;
-                    if (requested != null || actual == true)
-                    {
-                        if (requested != null)
-                        {
-                            dynamic jsonResp = JsonConvert.DeserializeObject(requested);
-                            _authToken = jsonResp.data.authTicket.token;
-                            try
-                            {
-                                input = jsonResp.data.user.id;
-                            }
-                            catch { }
-                        }
-                        else if (actual == true)
-                        {
-                            _authToken = JsonLogin.data.authTicket.token;
-                            input = JsonLogin.data.user.id;
-                        }
-                        if (input != null)
-                            _sha256Hash = ComputeSha256Hash(input);
-
-                        postReq.ClearAllHeaders();
-                        Utils.addHeaders(postReq, _authToken, _sha256Hash);
-                        var connectionsResp = postReq.Get(conUrl);
-
-                        if (connectionsResp.StatusCode.ToString() == "OK")
-                        {
-                            dynamic jsonCon = JsonConvert.DeserializeObject(connectionsResp.ToString());
-                            _patientId = jsonCon.data[0].patientId;
-                            postReq.ClearAllHeaders();
-                            Utils.addHeaders(postReq, _authToken, _sha256Hash);
-                            return true;
-                        }
-                    }
+                    Console.WriteLine($"Login failed: {response.StatusCode}");
+                    return false;
                 }
-                return false;
+
+                var responseString = await response.Content.ReadAsStringAsync();
+                dynamic JsonLogin = JsonConvert.DeserializeObject(responseString);
+                string region = JsonLogin.data.region != null ? $"-{JsonLogin.data.region}" : "";
+              
+                // ✅ Handle region-based login
+                if (!string.IsNullOrEmpty(region))
+                {
+                    loginUrl = $"https://api{region}.libreview.io/llu/auth/login";
+                    conUrl = $"https://api{region}.libreview.io/llu/connections";
+
+                    ConfigureHeaders(_httpClient,null, null);
+                    response = await _httpClient.PostAsync(loginUrl, content);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine($"Regional login failed: {response.StatusCode}");
+                        return false;
+                    }
+
+                    responseString = await response.Content.ReadAsStringAsync();
+                    JsonLogin = JsonConvert.DeserializeObject(responseString);
+                }
+
+                _authToken = JsonLogin.data.authTicket.token;
+                _patientId = JsonLogin.data.user.id;
+                _sha256Hash = ComputeSha256Hash(_patientId);
+
+                //_httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _authToken);
+                //_httpClient.DefaultRequestHeaders.Add("Account-Id", _sha256Hash);
+
+                ConfigureHeaders(_httpClient,_authToken, _sha256Hash);
+                // ✅ Fetch patient connection details
+                response = await _httpClient.GetAsync(conUrl);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Failed to retrieve patient connections: {response.StatusCode}");
+                    return false;
+                }
+
+                responseString = await response.Content.ReadAsStringAsync();
+                dynamic jsonCon = JsonConvert.DeserializeObject(responseString);
+                _patientId = jsonCon.data[0].patientId;
+
+                return true;
             }
             catch (Exception ex)
             {
@@ -211,37 +215,57 @@ namespace LibreLinkMaui
             }
         }
 
+        private void ConfigureHeaders(HttpClient client, string authToken, string sha256Hash)
+        {
+            client.DefaultRequestHeaders.Clear();
+            client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
+            client.DefaultRequestHeaders.Add("Pragma", "no-cache");
+            client.DefaultRequestHeaders.Add("Connection", "Keep-Alive");
+            client.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
+            client.DefaultRequestHeaders.Add("Sec-Fetch-Site", "cross-site");
+            client.DefaultRequestHeaders.Add("Sec-CH-UA-Mobile", "?0");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "HTTP Debugger/9.0.0.12");
+            client.DefaultRequestHeaders.Add("Product", "llu.android");
+            client.DefaultRequestHeaders.Add("Version", "4.12.0");
+            client.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
+
+            if (!string.IsNullOrEmpty(authToken))
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+
+            if (!string.IsNullOrEmpty(sha256Hash))
+                client.DefaultRequestHeaders.Add("Account-Id", sha256Hash);
+        }
+
         private static string ComputeSha256Hash(string input)
         {
-            using (SHA256 sha256Hash = SHA256.Create())
+            using var sha256Hash = System.Security.Cryptography.SHA256.Create();
+            byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(input));
+            StringBuilder builder = new StringBuilder();
+            foreach (byte b in bytes)
             {
-                byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(input));
-                StringBuilder builder = new StringBuilder();
-                foreach (byte b in bytes)
-                {
-                    builder.Append(b.ToString("x2"));
-                }
-                return builder.ToString();
+                builder.Append(b.ToString("x2"));
             }
+            return builder.ToString();
         }
         public async Task<List<GlucoseData>> GetGlucoseDataAsync()
         {
             if (string.IsNullOrEmpty(_authToken) || string.IsNullOrEmpty(_patientId))
                 throw new InvalidOperationException("Not authenticated. Call LoginAsync first.");
 
-            HttpRequest postReq = new HttpRequest();
-            Utils.addHeaders(postReq, _authToken, _sha256Hash);
-            var response = postReq.Get($"https://api.libreview.io/llu/connections/{_patientId}/graph");
+            using var httpClient = new HttpClient();
+            ConfigureHeaders(httpClient, _authToken, _sha256Hash);
 
-            if (response.StatusCode.ToString() == "OK")
+            var glucoseUrl = $"https://api.libreview.io/llu/connections/{_patientId}/graph";
+            var response = await httpClient.GetAsync(glucoseUrl);
+
+            if (response.IsSuccessStatusCode)
             {
-                dynamic jsonResp = JsonConvert.DeserializeObject(response.ToString());
-                return ParseGraphData(JsonConvert.SerializeObject(jsonResp, Formatting.Indented));
+                var jsonResp = await response.Content.ReadAsStringAsync();
+                return ParseGraphData(jsonResp);
             }
 
-            throw new Exception("Failed to retrieve glucose data");
+            throw new Exception($"Failed to retrieve glucose data. Status Code: {response.StatusCode}");
         }
-
         public List<GlucoseData> ParseGraphData(string json)
         {
             dynamic jsonResp = JsonConvert.DeserializeObject(json);
