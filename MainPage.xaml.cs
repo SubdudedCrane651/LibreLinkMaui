@@ -85,7 +85,7 @@ namespace LibreLinkMaui
                     if (!response.IsSuccessStatusCode)
                     {
                         Console.WriteLine($"Login failed: {response.StatusCode}");
-                        return "Login failed {response.StatusCode}";
+                        return "Login failed";
                     }
 
                     // ✅ Decompress GZIP Content
@@ -268,7 +268,7 @@ namespace LibreLinkMaui
             }
             else
             {
-                await DisplayAlert("Alert Win Android", doit.Result, "OK");
+                await DisplayAlert("Alert", doit.Result, "OK");
             }
 #else
             var doit = CheckCredentials_iOS(emailEntry.Text, passwordEntry.Text);
