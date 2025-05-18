@@ -1,4 +1,5 @@
-﻿rmdir bin /S
+﻿echo ""
+rmdir bin /S
 rmdir obj /S
 dotnet clean
 dotnet build

@@ -62,7 +62,7 @@ namespace LibreLinkMaui
                 _httpClient = new HttpClient();
             }
 
-            public async Task<bool> LoginAsync(string email, string password)
+            public async Task<string> LoginAsync(string email, string password)
             {
                 try
                 {
@@ -80,11 +80,12 @@ namespace LibreLinkMaui
 
                     ConfigureHeaders(_httpClient, null, null);
                     // ✅ Send Login Request
+
                     var response = await _httpClient.PostAsync(loginUrl, content).ConfigureAwait(false);
                     if (!response.IsSuccessStatusCode)
                     {
                         Console.WriteLine($"Login failed: {response.StatusCode}");
-                        return false;
+                        return "Login failed";
                     }
 
                     // ✅ Decompress GZIP Content
@@ -99,60 +100,162 @@ namespace LibreLinkMaui
                     int? errorCode = jsonResponse["status"]?.ToObject<int>();
 
                     if (errorCode != null && errorCode == 2)
-                        return false;
+                        return "Email or Password incorrect try again " + responseString;
                     else
-                        return true;
+                        return "OK";
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"An error occurred: {ex.Message}");
-                    return false;
+                    return ex.Message;
                 }
             }
-            private void ConfigureHeaders(HttpClient client, string authToken, string sha256Hash)
+        }
+        public class LibreLinkUpClient_iOS
+        {
+            private readonly HttpClient _httpClient;
+            private string? _authToken;
+            private string? _patientId;
+            private string? _sha256Hash;
+
+            public LibreLinkUpClient_iOS()
             {
-                client.DefaultRequestHeaders.Clear();
-                client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
-                client.DefaultRequestHeaders.Add("Pragma", "no-cache");
-                client.DefaultRequestHeaders.Add("Connection", "Keep-Alive");
-                client.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
-                client.DefaultRequestHeaders.Add("Sec-Fetch-Site", "cross-site");
-                client.DefaultRequestHeaders.Add("Sec-CH-UA-Mobile", "?0");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "HTTP Debugger/9.0.0.12");
-                client.DefaultRequestHeaders.Add("Product", "llu.android");
-                client.DefaultRequestHeaders.Add("Version", "4.12.0");
-                client.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
+                _httpClient = new HttpClient();
+            }
 
-                if (!string.IsNullOrEmpty(authToken))
-                    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            public async Task<string> LoginAsync(string email, string password)
+            {
+                try
+                {
+                    var loginUrl = "https://api.libreview.io/llu/auth/login";
+                    var conUrl = "https://api.libreview.io/llu/connections";
 
-                if (!string.IsNullOrEmpty(sha256Hash))
-                    client.DefaultRequestHeaders.Add("Account-Id", sha256Hash);
+                    var requestBody = new
+                    {
+                        email = email,
+                        password = password
+                    };
+
+                    var json = JsonConvert.SerializeObject(requestBody);
+                    var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                    ConfigureHeaders(_httpClient, null, null);
+                    // ✅ Send Login Request
+
+                    var response = await _httpClient.PostAsync(loginUrl, content).ConfigureAwait(false);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine($"Login failed: {response.StatusCode}");
+                        return "Login failed";
+                    }
+
+                    // ✅ Read response as a byte array
+                    var responseBytes = await response.Content.ReadAsByteArrayAsync();
+
+                    // ✅ Check if response is GZIP compressed
+                    bool isGzip = response.Headers.TryGetValues("Content-Encoding", out var encodings) &&
+                                  encodings.Contains("gzip");
+
+                    string responseString;
+
+                    if (isGzip)
+                    {
+                        using var decompressedStream = new GZipStream(new MemoryStream(responseBytes), CompressionMode.Decompress);
+                        using var streamReader = new StreamReader(decompressedStream, Encoding.UTF8);
+                        responseString = await streamReader.ReadToEndAsync();
+                    }
+                    else
+                    {
+                        responseString = Encoding.UTF8.GetString(responseBytes);
+                    }
+
+                    // ✅ Parse JSON correctly
+                    JObject jsonResponse = JObject.Parse(responseString);
+
+                    // ✅ Extract "status" field from JSON
+                    int? errorCode = jsonResponse["status"]?.ToObject<int>();
+
+                    if (errorCode != null && errorCode == 2)
+                        return "Email or Password incorrect try again " + responseString;
+                    else
+                        return "OK";
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"An error occurred: {ex.Message}");
+                    return "iOS code error " + ex.Message;
+                }
             }
         }
-
-        public async Task<bool> CheckCredentials(string email, string password)
+        private static void ConfigureHeaders(HttpClient client, string authToken, string sha256Hash)
         {
+            client.DefaultRequestHeaders.Clear();
+            client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip");
+            client.DefaultRequestHeaders.Add("Pragma", "no-cache");
+            client.DefaultRequestHeaders.Add("Connection", "Keep-Alive");
+            client.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
+            client.DefaultRequestHeaders.Add("Sec-Fetch-Site", "cross-site");
+            client.DefaultRequestHeaders.Add("Sec-CH-UA-Mobile", "?0");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "HTTP Debugger/9.0.0.12");
+            client.DefaultRequestHeaders.Add("Product", "llu.android");
+            client.DefaultRequestHeaders.Add("Version", "4.12.0");
+            client.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
+
+            if (!string.IsNullOrEmpty(authToken))
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+
+            if (!string.IsNullOrEmpty(sha256Hash))
+                client.DefaultRequestHeaders.Add("Account-Id", sha256Hash);
+        }
+
+        public async Task<string> CheckCredentials(string email, string password)
+        {
+
             var _client = new LibreLinkUpClient();
+
+            string result = "";
 
             try
             {
 
-                var loginSuccess = await _client.LoginAsync(email, password).ConfigureAwait(false); 
-                if (loginSuccess)
+                var loginSuccess = await _client.LoginAsync(email, password).ConfigureAwait(false);
+                result = loginSuccess;
+                if (loginSuccess == "OK")
                 {
-                    return true;
+                    return "OK";
                 }
             }
             catch { }
 
-            return false;
+            return result;
+        }
+
+        public async Task<string> CheckCredentials_iOS(string email, string password)
+        {
+            var _client = new LibreLinkUpClient_iOS();
+
+            string result = "";
+
+            try
+            {
+
+                var loginSuccess = await _client.LoginAsync(email, password).ConfigureAwait(false);
+                result = loginSuccess;
+                if (loginSuccess == "OK")
+                {
+                    return "OK";
+                }
+            }
+            catch { }
+
+            return result;
         }
 
         private async void Button_Clicked(object sender, EventArgs e)
         {
+#if WINDOWS || ANDROID
             var doit = CheckCredentials(emailEntry.Text, passwordEntry.Text);
-            if (doit.Result)
+            if (doit.Result == "OK")
             {
 
                 string loginjson = @"{'email':'" + emailEntry.Text + "','password':'" + passwordEntry.Text + "'}";
@@ -165,8 +268,27 @@ namespace LibreLinkMaui
             }
             else
             {
-                await DisplayAlert("Alert", "The email or password is incorrect please try again!", "OK");
+                await DisplayAlert("Alert", doit.Result, "OK");
             }
+#else
+            var doit = CheckCredentials_iOS(emailEntry.Text, passwordEntry.Text);
+            if (doit.Result=="OK")
+            {
+
+                string loginjson = @"{'email':'" + emailEntry.Text + "','password':'" + passwordEntry.Text + "'}";
+
+                class1.SaveData(loginjson);
+
+                await Navigation.PushAsync(new ConnectPage(emailEntry.Text, passwordEntry.Text));
+
+
+            }
+            else
+            {
+                await DisplayAlert("Alert", doit.Result, "OK");
+            }
+#endif
+
         }
     }
 }
