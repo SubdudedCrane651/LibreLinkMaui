@@ -85,7 +85,7 @@ namespace LibreLinkMaui
                     if (!response.IsSuccessStatusCode)
                     {
                         Console.WriteLine($"Login failed: {response.StatusCode}");
-                        return "Login failed";
+                        return "Login failed {response.StatusCode}";
                     }
 
                     // ✅ Decompress GZIP Content
@@ -100,7 +100,7 @@ namespace LibreLinkMaui
                     int? errorCode = jsonResponse["status"]?.ToObject<int>();
 
                     if (errorCode != null && errorCode == 2)
-                        return "Email or Password incorrect try again " + responseString;
+                        return "Email or Password incorrect try again!";
                     else
                         return "OK";
                 }
@@ -176,7 +176,7 @@ namespace LibreLinkMaui
                     int? errorCode = jsonResponse["status"]?.ToObject<int>();
 
                     if (errorCode != null && errorCode == 2)
-                        return "Email or Password incorrect try again " + responseString;
+                        return "Email or Password incorrect try again!";
                     else
                         return "OK";
                 }
@@ -268,7 +268,7 @@ namespace LibreLinkMaui
             }
             else
             {
-                await DisplayAlert("Alert", doit.Result, "OK");
+                await DisplayAlert("Alert Win Android", doit.Result, "OK");
             }
 #else
             var doit = CheckCredentials_iOS(emailEntry.Text, passwordEntry.Text);
