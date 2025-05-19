@@ -1,17 +1,18 @@
-﻿using System.Net.Http.Headers;
-using System.Text.Json;
-using System.Text;
-using System.Threading.Tasks;
-using System;
-using System.Security.Cryptography;
+﻿using Microsoft.Maui.Controls;
 using Newtonsoft.Json;
-using System.Diagnostics;
-using System.Threading;
-using System.ComponentModel;
-using System.Net.Http;
-using System.Threading.Tasks;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO.Compression;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Threading.Tasks;
 
 
 namespace LibreLinkMaui
@@ -21,11 +22,8 @@ namespace LibreLinkMaui
         public List<GlucoseData> GraphDataList { get; private set; } // Store parsed data
         public string LatestGlucoseValue { get; private set; }
         public string LatestTimestamp { get; private set; }
-#if WINDOWS || ANDROID
         private readonly LibreLinkUpClient _client;
-#else
-        private readonly LibreLinkUpClient_iOS _client;
-#endif
+        private readonly LibreLinkUpClient_iOS _client_iOS;
         private CancellationTokenSource _cts;
         public string Email = "";
         public string Password = "";
@@ -38,17 +36,14 @@ namespace LibreLinkMaui
             Email = email;
             Password = password;
             InitializeComponent();
-#if WINDOWS || ANDROID
             _client = new LibreLinkUpClient();
-#else
-            _client = new LibreLinkUpClient_iOS();
-#endif
-
+            _client_iOS = new LibreLinkUpClient_iOS();
             // Start looping Main method asynchronously
             //Main().ConfigureAwait(false);
             _viewModel = new ConnectPageViewModel();
             BindingContext = _viewModel; // ✅ Ensures bindings work
             Task.Run(() => StartLoopAsync());
+            //Task.Run(() => LoadChartDataAsync());
         }
 
         public async Task StartLoopAsync()
@@ -56,7 +51,11 @@ namespace LibreLinkMaui
             _cts = new CancellationTokenSource();
             while (!_cts.Token.IsCancellationRequested)
             {
+#if WINDOWS || ANDROID
                 await LoadChartDataAsync();
+#else
+                await LoadChartData_iOSAsync();
+#endif
                 await Task.Delay(1000); // Wait 1 second before repeating
             }
             Console.WriteLine("Loop Stopped.");
@@ -103,6 +102,7 @@ namespace LibreLinkMaui
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
             }
         }
+
         private async Task LoadChartDataAsync()
         {
             try
@@ -125,13 +125,45 @@ namespace LibreLinkMaui
                 }
 
                 BindingContext = _viewModel; // ✅ Ensures bindings work
+
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Exception: {ex.Message}");
+                Console.WriteLine($"An error occurred: {ex.Message}");
+                return;
             }
         }
+        private async Task LoadChartData_iOSAsync()
+        {
+            try
+            {
+                var loginSuccess = await _client_iOS.LoginAsync(Email, Password);
 
+                if (!loginSuccess)
+                {
+                    Console.WriteLine("Login failed.");
+                    return;
+                }
+
+                var newData = await _client_iOS.GetGlucoseDataAsync();
+                if (newData != null && newData.Count > 0)
+                {
+                    _viewModel.GraphDataList = newData; // ✅ Bind list dynamically
+
+                    var latest = _viewModel.GraphDataList[^1];
+                    _viewModel.LatestTimestamp = $"Timestamp: {latest.Timestamp}";
+                    _viewModel.LatestGlucoseValue = $"Glucose: {latest.Value} mmol/L";
+                }
+
+                BindingContext = _viewModel; // ✅ Ensures bindings work
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+                await DisplayAlert("Alert", ex.Message, "OK");
+                return;
+            }
+        }
         private async void Disconnect_Clicked(object sender, EventArgs e)
         {
             StopLoop(); // Stop the loop when disconnect is clicked
