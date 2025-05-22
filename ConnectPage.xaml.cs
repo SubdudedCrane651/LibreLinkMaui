@@ -14,6 +14,9 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.IO;
+using Microsoft.Maui.Storage;
+
 
 
 namespace LibreLinkMaui
@@ -79,8 +82,13 @@ namespace LibreLinkMaui
 
         private async Task PlayAlarm()
         {
-            var player = AudioManager.Current.CreatePlayer(await FileSystem.OpenAppPackageFileAsync("alarm1.mp3"));
+            var audioManager = AudioManager.Current;
+
+            using var stream = await FileSystem.OpenAppPackageFileAsync("alarm1.mp3");
+            var player = audioManager.CreatePlayer(stream);
+
             player.Play();
+
         }
 
 
