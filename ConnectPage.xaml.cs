@@ -135,7 +135,7 @@ namespace LibreLinkMaui
                     _viewModel.LatestTimestamp = $"Timestamp: {latest.Timestamp}";
                     _viewModel.LatestGlucoseValue = $"Glucose: {latest.Value} mmol/L";
 
-                    if (latest.Value > 6)
+                    if (latest.Value < 4)
                     {
                         // ✅ Check if at least 1 minute has passed since last alarm
                         if ((DateTime.Now - lastAlarmTime).TotalSeconds >= 60)
