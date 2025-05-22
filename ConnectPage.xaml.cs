@@ -186,6 +186,17 @@ namespace LibreLinkMaui
                     var latest = _viewModel.GraphDataList[^1];
                     _viewModel.LatestTimestamp = $"Timestamp: {latest.Timestamp}";
                     _viewModel.LatestGlucoseValue = $"Glucose: {latest.Value} mmol/L";
+
+                    if (latest.Value < 4)
+                    {
+                        // ✅ Check if at least 1 minute has passed since last alarm
+                        if ((DateTime.Now - lastAlarmTime).TotalSeconds >= 60)
+                        {
+                            await SpeakHypoAlert();
+                            await PlayAlarm();
+                            lastAlarmTime = DateTime.Now; // ✅ Update last alarm time
+                        }
+                    }
                 }
 
                 BindingContext = _viewModel; // ✅ Ensures bindings work
