@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Syncfusion.Maui.Core.Hosting;
+using Plugin.Maui.Audio;
 
 namespace LibreLinkMaui
 {
@@ -16,7 +17,7 @@ namespace LibreLinkMaui
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
             builder.UseMauiApp<App>().ConfigureSyncfusionCore();
-
+            builder.Services.AddSingleton(AudioManager.Current);
 
 #if DEBUG
             builder.Logging.AddDebug();

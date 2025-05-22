@@ -1,5 +1,7 @@
 ﻿using Microsoft.Maui.Controls;
+using Microsoft.Maui.Media;
 using Newtonsoft.Json;
+using Plugin.Maui.Audio;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -11,7 +13,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Threading.Tasks;
 
 
@@ -29,8 +30,7 @@ namespace LibreLinkMaui
         public string Password = "";
         public Class1 class1 = new Class1();
         private readonly ConnectPageViewModel _viewModel;
-
-
+        private DateTime lastAlarmTime = DateTime.MinValue; // ✅ Keeps track of last alarm
         public ConnectPage(string email, string password)
         {
             Email = email;
@@ -71,6 +71,18 @@ namespace LibreLinkMaui
             base.OnDisappearing();
             StopLoop(); // Stop loop on exit
         }
+
+        private async Task SpeakHypoAlert()
+    {
+        await TextToSpeech.Default.SpeakAsync("You are presently in Hypo. Please take action.");
+    }
+
+        private async Task PlayAlarm()
+        {
+            var player = AudioManager.Current.CreatePlayer(await FileSystem.OpenAppPackageFileAsync("alarm1.mp3"));
+            player.Play();
+        }
+
 
         public class ConnectPageViewModel : INotifyPropertyChanged
         {
@@ -122,7 +134,20 @@ namespace LibreLinkMaui
                     var latest = _viewModel.GraphDataList[^1];
                     _viewModel.LatestTimestamp = $"Timestamp: {latest.Timestamp}";
                     _viewModel.LatestGlucoseValue = $"Glucose: {latest.Value} mmol/L";
+
+                    if (latest.Value > 6)
+                    {
+                        // ✅ Check if at least 1 minute has passed since last alarm
+                        if ((DateTime.Now - lastAlarmTime).TotalSeconds >= 60)
+                        {
+                            await SpeakHypoAlert();
+                            await PlayAlarm();
+                            lastAlarmTime = DateTime.Now; // ✅ Update last alarm time
+                        } 
+                    }
                 }
+
+
 
                 BindingContext = _viewModel; // ✅ Ensures bindings work
 
@@ -199,7 +224,7 @@ namespace LibreLinkMaui
                 };
 
                 var json = JsonConvert.SerializeObject(requestBody);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
                 ConfigureHeaders(_httpClient, null, null);
                 // ✅ Send Login Request
@@ -213,7 +238,7 @@ namespace LibreLinkMaui
                 // ✅ Decompress GZIP Content
                 using var responseStream = await response.Content.ReadAsStreamAsync();
                 using var decompressedStream = new GZipStream(responseStream, CompressionMode.Decompress);
-                using var streamReader = new StreamReader(decompressedStream, Encoding.UTF8);
+                using var streamReader = new StreamReader(decompressedStream, System.Text.Encoding.UTF8);
                 string responseString = await streamReader.ReadToEndAsync();
 
                 // ✅ Parse JSON after decompression
@@ -257,7 +282,7 @@ namespace LibreLinkMaui
                 // ✅ Decompress GZIP Content
                 using var responseStream2 = await response.Content.ReadAsStreamAsync();
                 using var decompressedStream2 = new GZipStream(responseStream2, CompressionMode.Decompress);
-                using var streamReader2 = new StreamReader(decompressedStream2, Encoding.UTF8);
+                using var streamReader2 = new StreamReader(decompressedStream2, System.Text.Encoding.UTF8);
                 string responseString2 = await streamReader2.ReadToEndAsync();
                 dynamic jsonCon = JsonConvert.DeserializeObject(responseString2);
                 _patientId = jsonCon.data[0].patientId;
@@ -295,7 +320,7 @@ namespace LibreLinkMaui
         private static string ComputeSha256Hash(string input)
         {
             using var sha256Hash = System.Security.Cryptography.SHA256.Create();
-            byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(input));
+            byte[] bytes = sha256Hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
             StringBuilder builder = new StringBuilder();
             foreach (byte b in bytes)
             {
@@ -319,7 +344,7 @@ namespace LibreLinkMaui
                 //var jsonResp = await response.Content.ReadAsStringAsync();
                 using var responseStream = await response.Content.ReadAsStreamAsync();
                 using var decompressedStream = new GZipStream(responseStream, CompressionMode.Decompress);
-                using var streamReader = new StreamReader(decompressedStream, Encoding.UTF8);
+                using var streamReader = new StreamReader(decompressedStream, System.Text.Encoding.UTF8);
                 string responseString = await streamReader.ReadToEndAsync();
 
                 // ✅ Parse JSON after decompression
@@ -384,7 +409,7 @@ namespace LibreLinkMaui
                 };
 
                 var json = JsonConvert.SerializeObject(requestBody);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
                 ConfigureHeaders(_httpClient, null, null);
                 // ✅ Send Login Request
@@ -407,12 +432,12 @@ namespace LibreLinkMaui
                 if (isGzip)
                 {
                     using var decompressedStream = new GZipStream(new MemoryStream(responseBytes), CompressionMode.Decompress);
-                    using var streamReader = new StreamReader(decompressedStream, Encoding.UTF8);
+                    using var streamReader = new StreamReader(decompressedStream, System.Text.Encoding.UTF8);
                     responseString = await streamReader.ReadToEndAsync();
                 }
                 else
                 {
-                    responseString = Encoding.UTF8.GetString(responseBytes);
+                    responseString = System.Text.Encoding.UTF8.GetString(responseBytes);
                 }
 
                
@@ -465,12 +490,12 @@ namespace LibreLinkMaui
                 if (isGzip2)
                 {
                     using var decompressedStream = new GZipStream(new MemoryStream(responseBytes2), CompressionMode.Decompress);
-                    using var streamReader = new StreamReader(decompressedStream, Encoding.UTF8);
+                    using var streamReader = new StreamReader(decompressedStream, System.Text.Encoding.UTF8);
                     responseString2 = await streamReader.ReadToEndAsync();
                 }
                 else
                 {
-                    responseString2 = Encoding.UTF8.GetString(responseBytes2);
+                    responseString2 = System.Text.Encoding.UTF8.GetString(responseBytes2);
                 }
                 dynamic jsonCon = JsonConvert.DeserializeObject(responseString2);
                 _patientId = jsonCon.data[0].patientId;
@@ -508,7 +533,7 @@ namespace LibreLinkMaui
         private static string ComputeSha256Hash(string input)
         {
             using var sha256Hash = System.Security.Cryptography.SHA256.Create();
-            byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(input));
+            byte[] bytes = sha256Hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
             StringBuilder builder = new StringBuilder();
             foreach (byte b in bytes)
             {
@@ -541,12 +566,12 @@ namespace LibreLinkMaui
                 if (isGzip)
                 {
                     using var decompressedStream = new GZipStream(new MemoryStream(responseBytes), CompressionMode.Decompress);
-                    using var streamReader = new StreamReader(decompressedStream, Encoding.UTF8);
+                    using var streamReader = new StreamReader(decompressedStream, System.Text.Encoding.UTF8);
                     responseString = await streamReader.ReadToEndAsync();
                 }
                 else
                 {
-                    responseString = Encoding.UTF8.GetString(responseBytes);
+                    responseString = System.Text.Encoding.UTF8.GetString(responseBytes);
                 }
 
                 // ✅ Parse JSON after decompression
