@@ -84,7 +84,7 @@ namespace LibreLinkMaui
         {
             var audioManager = AudioManager.Current;
 
-            using var stream = await FileSystem.OpenAppPackageFileAsync("alarm1.mp3");
+            using var stream = await FileSystem.OpenAppPackageFileAsync("telephone-ring.mp3");
             var player = audioManager.CreatePlayer(stream);
 
             player.Play();
