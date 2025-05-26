@@ -10,6 +10,11 @@
       Priority="1"
       IsEnabled="True"
       Order="Secondary"/>
+        <ToolbarItem x:Name="Settings" Text="Settings"
+                 Clicked="Settings_Clicked"
+      Priority="2"
+      IsEnabled="True"
+      Order="Secondary"/>
     </ContentPage.ToolbarItems>
     <VerticalStackLayout>
 

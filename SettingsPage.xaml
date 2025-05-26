@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="LibreLinkMaui.SettingsPage"
+             Title="Settings">
+    <VerticalStackLayout>
+        <Label Text="Hyper"/>
+        <Entry x:Name="HyperEntry" Placeholder="Hyper level" />
+        <Entry x:Name="HyperSpeak" Placeholder="Hyper Speak" />
+        <Label />
+        <Label Text="Hypo"/>
+        <Entry x:Name="HypoEntry" Placeholder="Hypo level" />
+        <Entry x:Name="HypoSpeak" Placeholder="Hypo Speak" />
+        <Label />
+        <Button x:Name="Savebtn" Text="Save" Clicked="Savebtn_Clicked"
+                />
+    </VerticalStackLayout>
+</ContentPage>

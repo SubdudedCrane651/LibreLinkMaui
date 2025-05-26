@@ -1,11 +1,14 @@
 ﻿using Microsoft.Maui.Controls;
 using Microsoft.Maui.Media;
+using Microsoft.Maui.Storage;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Plugin.Maui.Audio;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -14,8 +17,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.IO;
-using Microsoft.Maui.Storage;
 
 
 
@@ -29,6 +30,12 @@ namespace LibreLinkMaui
         private readonly LibreLinkUpClient _client;
         private readonly LibreLinkUpClient_iOS _client_iOS;
         private CancellationTokenSource _cts;
+        public double hyperlevel = 3.9;
+        public string hyperspeak = "";
+        public double hypolevel = 13.9;
+        public string hypospeak = "";
+        public static string password = "";
+        public static string email = "";
         public string Email = "";
         public string Password = "";
         public Class1 class1 = new Class1();
@@ -43,6 +50,46 @@ namespace LibreLinkMaui
             _client_iOS = new LibreLinkUpClient_iOS();
             // Start looping Main method asynchronously
             //Main().ConfigureAwait(false);
+
+            string result = class1.GetLoginJson();
+            var jsonObject = JObject.Parse(result);
+
+            try
+            {
+                email = jsonObject["email"].ToString();
+            }
+            catch { }
+
+            try
+            {
+                password = jsonObject["password"].ToString();
+            }
+            catch { }
+
+        try
+            {
+                hyperlevel = Convert.ToDouble(jsonObject["hyperlevel"].ToString());
+            }
+            catch { }
+
+            try
+            {
+                hyperspeak = jsonObject["hyperspeak"].ToString();
+            }
+            catch { }
+
+            try
+            {
+                hypolevel = Convert.ToDouble(jsonObject["hypolevel"].ToString());
+            }
+            catch { }
+
+            try
+            {
+                hypospeak = jsonObject["hypospeak"].ToString();
+            }
+            catch { }
+
             _viewModel = new ConnectPageViewModel();
             BindingContext = _viewModel; // ✅ Ensures bindings work
             Task.Run(() => StartLoopAsync());
@@ -75,9 +122,9 @@ namespace LibreLinkMaui
             StopLoop(); // Stop loop on exit
         }
 
-        private async Task SpeakHypoAlert()
+        private async Task SpeakHypoAlert(string speak)
     {
-        await TextToSpeech.Default.SpeakAsync("You are presently in Hypo. Please take action.");
+        await TextToSpeech.Default.SpeakAsync(speak);
     }
 
         private async Task PlayAlarm()
@@ -143,15 +190,25 @@ namespace LibreLinkMaui
                     _viewModel.LatestTimestamp = $"Timestamp: {latest.Timestamp}";
                     _viewModel.LatestGlucoseValue = $"Glucose: {latest.Value} mmol/L";
 
-                    if (latest.Value < 4)
+                    if (latest.Value > hyperlevel)
                     {
                         // ✅ Check if at least 1 minute has passed since last alarm
                         if ((DateTime.Now - lastAlarmTime).TotalSeconds >= 60)
                         {
-                            await SpeakHypoAlert();
+                            await SpeakHypoAlert(hypospeak);
                             await PlayAlarm();
                             lastAlarmTime = DateTime.Now; // ✅ Update last alarm time
                         } 
+                    } else
+                    if (latest.Value < hypolevel)
+                    {
+                        // ✅ Check if at least 1 minute has passed since last alarm
+                        if ((DateTime.Now - lastAlarmTime).TotalSeconds >= 60)
+                        {
+                            await SpeakHypoAlert(hypospeak);
+                            await PlayAlarm();
+                            lastAlarmTime = DateTime.Now; // ✅ Update last alarm time
+                        }
                     }
                 }
 
@@ -187,12 +244,23 @@ namespace LibreLinkMaui
                     _viewModel.LatestTimestamp = $"Timestamp: {latest.Timestamp}";
                     _viewModel.LatestGlucoseValue = $"Glucose: {latest.Value} mmol/L";
 
-                    if (latest.Value < 4)
+                    if (latest.Value > hyperlevel)
                     {
                         // ✅ Check if at least 1 minute has passed since last alarm
                         if ((DateTime.Now - lastAlarmTime).TotalSeconds >= 60)
                         {
-                            await SpeakHypoAlert();
+                            await SpeakHypoAlert(hypospeak);
+                            await PlayAlarm();
+                            lastAlarmTime = DateTime.Now; // ✅ Update last alarm time
+                        }
+                    }
+                    else
+                    if (latest.Value < hypolevel)
+                    {
+                        // ✅ Check if at least 1 minute has passed since last alarm
+                        if ((DateTime.Now - lastAlarmTime).TotalSeconds >= 60)
+                        {
+                            await SpeakHypoAlert(hypospeak);
                             await PlayAlarm();
                             lastAlarmTime = DateTime.Now; // ✅ Update last alarm time
                         }
@@ -214,6 +282,11 @@ namespace LibreLinkMaui
             string loginjson = @"{'email':'" + "','password':'" + "'}";
             class1.SaveData(loginjson);
             await Navigation.PushAsync(new MainPage());
+        }
+
+        private async void Settings_Clicked(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new SettingsPage());
         }
     }
 
