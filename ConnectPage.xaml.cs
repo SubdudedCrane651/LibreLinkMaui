@@ -195,7 +195,7 @@ namespace LibreLinkMaui
                         // ✅ Check if at least 1 minute has passed since last alarm
                         if ((DateTime.Now - lastAlarmTime).TotalSeconds >= 60)
                         {
-                            await SpeakHypoAlert(hypospeak);
+                            await SpeakHypoAlert(hyperspeak);
                             await PlayAlarm();
                             lastAlarmTime = DateTime.Now; // ✅ Update last alarm time
                         } 
@@ -249,7 +249,7 @@ namespace LibreLinkMaui
                         // ✅ Check if at least 1 minute has passed since last alarm
                         if ((DateTime.Now - lastAlarmTime).TotalSeconds >= 60)
                         {
-                            await SpeakHypoAlert(hypospeak);
+                            await SpeakHypoAlert(hyperspeak);
                             await PlayAlarm();
                             lastAlarmTime = DateTime.Now; // ✅ Update last alarm time
                         }
