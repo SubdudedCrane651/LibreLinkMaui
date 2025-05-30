@@ -6,9 +6,9 @@ namespace LibreLinkMaui;
 public partial class SettingsPage : ContentPage
 {
     public Class1 class1 = new Class1();
-    public double hyperlevel = 3.9;
+    public double hyperlevel = 14;
     public string hyperspeak = "";
-    public double hypolevel = 13.9;
+    public double hypolevel = 4;
     public string hypospeak = "";
     public static string password = "";
     public static string email = "";
